@@ -48,11 +48,11 @@ class Redis
         begin
           read_nonblock(nbytes)
 
-        rescue Errno::EWOULDBLOCK, Errno::EAGAIN
+        rescue Errno::EWOULDBLOCK, Errno::EAGAIN => e
           if IO.select([self], nil, nil, @timeout)
             retry
           else
-            raise Redis::TimeoutError
+            raise Redis::TimeoutError, "Timeout while reading from socket: #{e.class} (#{e.message})"
           end
         end
 
@@ -74,8 +74,8 @@ class Redis
             sock = new(host, port)
             sock
           end
-        rescue Timeout::Error
-          raise TimeoutError
+        rescue Timeout::Error => e
+          raise TimeoutError, "Timeout while connecting: #{e.class} (#{e.message})"
         end
       end
 
@@ -90,8 +90,8 @@ class Redis
               sock = new(path)
               sock
             end
-          rescue Timeout::Error
-            raise TimeoutError
+          rescue Timeout::Error => e
+            raise TimeoutError, "Timeout while connecting: #{e.class} (#{e.message})"
           end
 
           # JRuby raises Errno::EAGAIN on #read_nonblock even when IO.select
@@ -120,9 +120,9 @@ class Redis
 
           begin
             sock.connect_nonblock(sockaddr)
-          rescue Errno::EINPROGRESS
+          rescue Errno::EINPROGRESS => e
             if IO.select(nil, [sock], nil, timeout) == nil
-              raise TimeoutError
+              raise TimeoutError, "Timeout trying to IO.select socket after rescuing: #{e.class} (#{e.message})"
             end
 
             begin
@@ -178,9 +178,9 @@ class Redis
 
           begin
             sock.connect_nonblock(sockaddr)
-          rescue Errno::EINPROGRESS
+          rescue Errno::EINPROGRESS => e
             if IO.select(nil, [sock], nil, timeout) == nil
-              raise TimeoutError
+              raise TimeoutError, "Exception while connecting: #{e.class} (#{e.message})"
             end
 
             begin
@@ -274,8 +274,8 @@ class Redis
         reply_type = line.slice!(0, 1)
         format_reply(reply_type, line)
 
-      rescue Errno::EAGAIN
-        raise TimeoutError
+      rescue Errno::EAGAIN => e
+        raise TimeoutError, "Exception while reading: #{e.class} (#{e.message})"
       end
 
       def format_reply(reply_type, line)
